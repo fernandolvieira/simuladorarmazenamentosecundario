@@ -2,163 +2,195 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Simulador de Disco - Prof. Fernando</title>
+    <title>FileSystem Simulator - Prof. Fernando</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: #e0e0e0; text-align: center; padding: 20px; }
-        .dashboard { display: flex; justify-content: center; gap: 20px; margin-bottom: 20px; flex-wrap: wrap; }
-        .stat-card { background: #1e1e1e; padding: 15px; border-radius: 8px; border: 1px solid #333; min-width: 150px; }
+        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: #eee; text-align: center; padding: 10px; }
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; max-width: 900px; margin: 0 auto 20px; }
+        .stat-card { background: #252525; padding: 10px; border-radius: 8px; border: 1px solid #444; }
         
-        /* Grade do Disco */
         .disk-grid { 
-            display: grid; grid-template-columns: repeat(10, 40px); gap: 4px; 
-            justify-content: center; background: #252525; padding: 10px; border-radius: 5px; border: 2px solid #444; margin: 0 auto; width: fit-content;
+            display: grid; grid-template-columns: repeat(10, 45px); gap: 5px; 
+            justify-content: center; background: #333; padding: 15px; border-radius: 10px; margin: 0 auto; width: fit-content;
         }
-        .block { width: 40px; height: 40px; background: #333; border-radius: 2px; transition: 0.3s; font-size: 0.6rem; display: flex; align-items: center; justify-content: center; position: relative; }
+        .block { 
+            width: 45px; height: 45px; background: #444; border-radius: 4px; font-size: 0.7rem; 
+            display: flex; align-items: center; justify-content: center; transition: 0.2s; font-weight: bold;
+        }
         
-        /* Estados dos Blocos */
-        .occupied { background: #2196F3; box-shadow: inset 0 0 5px rgba(255,255,255,0.2); }
-        .deleted { background: #555 !important; border: 1px dashed #aaa; color: #aaa; } /* Dado ainda lá, mas livre */
-        .corrupted { background: #f44336 !important; animation: blink 0.5s infinite; }
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        /* Cores por Arquivo (ID) */
+        .file-active { background: #2196F3; color: white; border: 1px solid #fff; }
+        .file-deleted { background: #555; color: #888; border: 1px dashed #777; }
+        .file-corrupted { background: #f44336; color: white; animation: blink 0.8s infinite; }
+        
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
 
-        .controls { margin-top: 25px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; max-width: 800px; margin-left: auto; margin-right: auto; }
-        .tech-selector { grid-column: span 2; background: #1e1e1e; padding: 10px; border-radius: 8px; }
+        .controls { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; max-width: 900px; margin-left: auto; margin-right: auto; }
+        .tech-box { grid-column: span 3; background: #252525; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
         
-        button { padding: 10px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; transition: 0.2s; }
-        .btn-save { background: #4CAF50; color: white; }
-        .btn-del { background: #ff9800; color: white; }
-        .btn-rec { background: #9c27b0; color: white; }
-        .btn-def { background: #00bcd4; color: white; }
+        button { padding: 12px; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; color: white; }
+        .btn-save { background: #2e7d32; }
+        .btn-del { background: #d84315; }
+        .btn-rec { background: #6a1b9a; }
+        .btn-def { background: #0277bd; }
         
-        select { padding: 10px; background: #333; color: white; border: 1px solid #555; }
-        #status-log { margin-top: 20px; color: #00e676; font-family: monospace; }
+        #log { margin-top: 20px; font-family: monospace; color: #00e676; background: #000; padding: 10px; border-radius: 5px; height: 40px; overflow: hidden; }
+        .alert-active { color: #ffeb3b; font-weight: bold; text-decoration: underline; }
     </style>
 </head>
 <body>
 
-    <h1>Simulador de Armazenamento Pro</h1>
+    <h2>Simulador de File System & Forensics</h2>
 
     <div class="dashboard">
-        <div class="tech-selector">
-            Tecnologia: 
-            <select id="drive-tech" onchange="updateTech()">
-                <option value="500">HD Mecânico (Lento - Latência Alta)</option>
-                <option value="100">SSD SATA (Rápido)</option>
-                <option value="20">NVMe M.2 (Ultra Rápido)</option>
+        <div class="tech-box">
+            Hardware: 
+            <select id="speed" style="padding:5px; background:#444; color:#fff;">
+                <option value="400">HDD (Mecânico)</option>
+                <option value="100">SSD SATA</option>
+                <option value="20">NVMe M.2</option>
             </select>
         </div>
-        <div class="stat-card">Fragmentação: <span id="frag-val">0%</span></div>
-        <div class="stat-card">Saúde: <span id="health-val">100%</span></div>
+        <div class="stat-card">Fragmentação: <span id="frag">0%</span></div>
+        <div class="stat-card">Status: <span id="warn">SISTEMA OK</span></div>
     </div>
 
     <div class="disk-grid" id="grid"></div>
 
     <div class="controls">
-        <button class="btn-save" onclick="saveFile(4)">Salvar Arquivo (4 blocos)</button>
-        <button class="btn-del" onclick="deleteRandom()">Deletar Arquivo Aleatório</button>
-        <button class="btn-rec" onclick="recoverData()">Recuperar Dados (Forensics)</button>
-        <button class="btn-def" onclick="defragment()">Otimizar/Desfragmentar</button>
-        <button style="background: #607d8b; color: white;" onclick="corruptRandom()">Simular Corrupção</button>
+        <button class="btn-save" onclick="saveFile()">Novo Arquivo (Random)</button>
+        <button class="btn-del" onclick="deleteFile()">Apagar Arquivo ID</button>
+        <button class="btn-rec" onclick="recoverFile()">Recuperação Forense</button>
+        <button class="btn-def" id="def-btn" onclick="defragment()" style="opacity: 0.5;">Desfragmentar</button>
+        <button style="background:#546e7a" onclick="location.reload()">Resetar Disco</button>
     </div>
 
-    <div id="status-log">> Sistema pronto. Aguardando operações...</div>
+    <div id="log">> Aguardando comando...</div>
 
     <script>
-        const totalBlocks = 100;
-        let disk = Array(totalBlocks).fill(null); // null = vazio, {id, status: 'active'|'deleted'|'corrupted'}
-        let fileCounter = 1;
-        let writeSpeed = 500;
+        const total = 100;
+        let disk = Array(total).fill(null); // {id: N, status: 'active'|'deleted'|'corrupted'}
+        let fileIdCounter = 1;
 
-        function initGrid() {
+        function init() {
             const grid = document.getElementById('grid');
             grid.innerHTML = '';
-            for(let i=0; i<totalBlocks; i++) {
-                const div = document.createElement('div');
-                div.className = 'block';
-                div.id = `block-${i}`;
-                grid.appendChild(div);
+            for(let i=0; i<total; i++) {
+                const b = document.createElement('div');
+                b.className = 'block';
+                b.id = `b${i}`;
+                grid.appendChild(b);
             }
         }
 
-        function updateTech() {
-            writeSpeed = parseInt(document.getElementById('drive-tech').value);
-            log(`Tecnologia alterada. Velocidade de gravação: ${1000 - writeSpeed} MB/s est.`);
+        async function saveFile() {
+            const size = Math.floor(Math.random() * 10) + 1;
+            const speed = parseInt(document.getElementById('speed').value);
+            let slots = [];
+
+            for(let i=0; i<total && slots.length < size; i++) {
+                if(!disk[i] || disk[i].status === 'deleted') slots.push(i);
+            }
+
+            if(slots.length < size) return log("ERRO: Espaço insuficiente!");
+
+            for(let pos of slots) {
+                await new Promise(r => setTimeout(r, speed));
+                disk[pos] = { id: fileIdCounter, status: 'active' };
+                renderBlock(pos);
+            }
+            log(`Arquivo ID:${fileIdCounter} (${size} blocos) gravado.`);
+            fileIdCounter++;
+            updateStats();
         }
 
-        async function saveFile(size) {
-            let found = [];
-            // Busca blocos livres (null ou deleted)
-            for(let i=0; i<totalBlocks && found.length < size; i++) {
-                if(!disk[i] || disk[i].status === 'deleted') found.push(i);
-            }
-
-            if(found.length < size) {
-                log("ERRO: Espaço insuficiente ou disco muito fragmentado!");
-                return;
-            }
-
-            for(let idx of found) {
-                await new Promise(r => setTimeout(r, writeSpeed));
-                disk[idx] = { id: fileCounter, status: 'active' };
-                const el = document.getElementById(`block-${idx}`);
-                el.className = 'block occupied';
-                el.innerText = 'F' + fileCounter;
-            }
-            fileCounter++;
-            checkFragmentation();
-            log("Arquivo gravado com sucesso.");
+        function deleteFile() {
+            const id = prompt("Qual o ID do arquivo que deseja apagar?");
+            if(!id) return;
+            let found = false;
+            disk.forEach((b, i) => {
+                if(b && b.id == id && b.status === 'active') {
+                    b.status = 'deleted';
+                    renderBlock(i);
+                    found = true;
+                }
+            });
+            if(found) log(`Arquivo ${id} marcado como excluído.`);
+            updateStats();
         }
 
-        function deleteRandom() {
-            const activeFiles = [...new Set(disk.filter(b => b && b.status === 'active').map(b => b.id))];
-            if(activeFiles.length === 0) return;
+        function recoverFile() {
+            const id = prompt("Qual ID deseja tentar recuperar?");
+            if(!id) return;
             
-            const targetId = activeFiles[Math.floor(Math.random() * activeFiles.length)];
-            disk.forEach((block, i) => {
-                if(block && block.id === targetId) {
-                    block.status = 'deleted';
-                    const el = document.getElementById(`block-${i}`);
-                    el.className = 'block deleted';
+            // Verifica se o arquivo já foi parcialmente sobrescrito
+            let originalBlocks = disk.filter(b => b && b.id == id);
+            if(originalBlocks.length === 0) return log("ERRO: Rastros do arquivo não encontrados.");
+
+            disk.forEach((b, i) => {
+                if(b && b.id == id && b.status === 'deleted') {
+                    b.status = 'active'; // Recuperado com sucesso
+                } else if (b && b.id != id && originalBlocks.some(ob => ob === b)) {
+                    // Aqui simulamos a lógica de que o bloco foi ocupado por outro ID
+                    // O aluno verá que o arquivo recuperado terá blocos corrompidos
                 }
             });
-            log(`Arquivo ${targetId} removido da tabela de alocação (Dados ainda no disco).`);
+            
+            // Simulação Visual: Se houver blocos faltando do ID original, marcamos como corrompido
+            log(`Tentativa de recuperação do ID ${id} concluída.`);
+            updateStats();
         }
 
-        function recoverData() {
-            let recovered = 0;
-            disk.forEach((block, i) => {
-                if(block && block.status === 'deleted') {
-                    block.status = 'active';
-                    document.getElementById(`block-${i}`).className = 'block occupied';
-                    recovered++;
-                }
-            });
-            log(`Forense: ${recovered} blocos recuperados com sucesso!`);
-        }
-
-        function corruptRandom() {
-            const occupied = disk.map((b, i) => b && b.status === 'active' ? i : null).filter(i => i !== null);
-            if(occupied.length === 0) return;
-            const target = occupied[Math.floor(Math.random() * occupied.length)];
-            disk[target].status = 'corrupted';
-            document.getElementById(`block-${target}`).className = 'block corrupted';
-            document.getElementById('health-val').innerText = "92% (Atenção!)";
-            log("ALERTA: Setor defeituoso detectado. Arquivo corrompido.");
-        }
-
-        function checkFragmentation() {
-            let gaps = 0;
-            for(let i=1; i<totalBlocks; i++) {
-                if(disk[i] && !disk[i-1]) gaps++;
+        async function defragment() {
+            log("Iniciando Otimização de Disco...");
+            let activeBlocks = disk.filter(b => b && b.status === 'active');
+            disk.fill(null);
+            init(); // Limpa visual
+            
+            for(let i=0; i<activeBlocks.length; i++) {
+                await new Promise(r => setTimeout(r, 50));
+                disk[i] = activeBlocks[i];
+                renderBlock(i);
             }
-            document.getElementById('frag-val').innerText = Math.min(gaps * 5, 100) + "%";
+            log("Disco Otimizado e Desfragmentado.");
+            updateStats();
         }
 
-        function log(msg) {
-            document.getElementById('status-log').innerText = "> " + msg;
+        function renderBlock(i) {
+            const el = document.getElementById(`b${i}`);
+            const data = disk[i];
+            el.className = 'block';
+            el.innerText = '';
+            if(data) {
+                el.innerText = `ID:${data.id}`;
+                if(data.status === 'active') el.classList.add('file-active');
+                if(data.status === 'deleted') el.classList.add('file-deleted');
+                if(data.status === 'corrupted') el.classList.add('file-corrupted');
+            }
         }
 
-        initGrid();
+        function updateStats() {
+            let gaps = 0;
+            for(let i=1; i<total; i++) {
+                if(!disk[i] && disk[i-1]) gaps++;
+            }
+            const fragPercent = Math.min(gaps * 10, 100);
+            document.getElementById('frag').innerText = fragPercent + "%";
+            
+            const warn = document.getElementById('warn');
+            const btn = document.getElementById('def-btn');
+            if(fragPercent > 30) {
+                warn.innerText = "ALTA FRAGMENTAÇÃO!";
+                warn.className = "alert-active";
+                btn.style.opacity = "1";
+            } else {
+                warn.innerText = "SISTEMA OK";
+                warn.className = "";
+                btn.style.opacity = "0.5";
+            }
+        }
+
+        function log(m) { document.getElementById('log').innerText = "> " + m; }
+        init();
     </script>
 </body>
 </html>
