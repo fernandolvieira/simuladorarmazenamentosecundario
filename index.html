@@ -2,74 +2,80 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>FileSystem Simulator - Prof. Fernando</title>
+    <title>FileSystem Expert - Prof. Fernando</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: #eee; text-align: center; padding: 10px; }
-        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; max-width: 900px; margin: 0 auto 20px; }
-        .stat-card { background: #252525; padding: 10px; border-radius: 8px; border: 1px solid #444; }
+        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: #eee; text-align: center; padding: 10px; }
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; max-width: 950px; margin: 0 auto 15px; }
+        .stat-card { background: #1e1e1e; padding: 10px; border-radius: 8px; border: 1px solid #333; font-size: 0.9rem; }
         
         .disk-grid { 
-            display: grid; grid-template-columns: repeat(10, 45px); gap: 5px; 
-            justify-content: center; background: #333; padding: 15px; border-radius: 10px; margin: 0 auto; width: fit-content;
+            display: grid; grid-template-columns: repeat(10, 42px); gap: 4px; 
+            justify-content: center; background: #222; padding: 12px; border-radius: 8px; border: 2px solid #444; margin: 0 auto; width: fit-content;
         }
         .block { 
-            width: 45px; height: 45px; background: #444; border-radius: 4px; font-size: 0.7rem; 
-            display: flex; align-items: center; justify-content: center; transition: 0.2s; font-weight: bold;
+            width: 42px; height: 42px; background: #333; border-radius: 3px; font-size: 0.65rem; 
+            display: flex; align-items: center; justify-content: center; transition: 0.2s; font-weight: bold; border: 1px solid #111;
         }
         
-        /* Cores por Arquivo (ID) */
-        .file-active { background: #2196F3; color: white; border: 1px solid #fff; }
-        .file-deleted { background: #555; color: #888; border: 1px dashed #777; }
-        .file-corrupted { background: #f44336; color: white; animation: blink 0.8s infinite; }
+        .file-active { background: #1976D2; color: white; } 
+        .file-deleted { background: #424242; color: #777; border: 1px dashed #666; } 
+        .file-recovered { background: #FBC02D; color: #000; } 
+        .file-corrupted { background: #D32F2F; color: white; animation: pulse 1s infinite; } 
         
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
 
-        .controls { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; max-width: 900px; margin-left: auto; margin-right: auto; }
-        .tech-box { grid-column: span 3; background: #252525; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+        .controls { margin-top: 15px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 950px; margin-left: auto; margin-right: auto; }
+        .tech-box { grid-column: span 3; background: #1e1e1e; padding: 8px; border-radius: 6px; margin-bottom: 5px; border: 1px solid #333; }
         
-        button { padding: 12px; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; color: white; }
+        button { padding: 10px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; color: white; font-size: 0.85rem; }
+        button:hover { filter: brightness(1.2); }
         .btn-save { background: #2e7d32; }
         .btn-del { background: #d84315; }
         .btn-rec { background: #6a1b9a; }
         .btn-def { background: #0277bd; }
+        .btn-format { background: #fbc02d; color: #000; }
+        .btn-zero { background: #000; border: 1px solid #555; }
         
-        #log { margin-top: 20px; font-family: monospace; color: #00e676; background: #000; padding: 10px; border-radius: 5px; height: 40px; overflow: hidden; }
-        .alert-active { color: #ffeb3b; font-weight: bold; text-decoration: underline; }
+        #log { margin-top: 15px; font-family: 'Courier New', monospace; color: #00e676; background: #000; padding: 10px; border-radius: 4px; height: 35px; border: 1px solid #333; font-size: 0.9rem; }
     </style>
 </head>
 <body>
 
-    <h2>Simulador de File System & Forensics</h2>
+    <h2 style="margin-bottom:10px;">Simulador: Ciclo de Vida do Dado e Perícia</h2>
 
     <div class="dashboard">
         <div class="tech-box">
             Hardware: 
-            <select id="speed" style="padding:5px; background:#444; color:#fff;">
+            <select id="speed" style="padding:4px; background:#333; color:#fff; border:1px solid #555;">
                 <option value="400">HDD (Mecânico)</option>
                 <option value="100">SSD SATA</option>
                 <option value="20">NVMe M.2</option>
             </select>
         </div>
         <div class="stat-card">Fragmentação: <span id="frag">0%</span></div>
-        <div class="stat-card">Status: <span id="warn">SISTEMA OK</span></div>
+        <div class="stat-card">Capacidade: <span id="cap">0</span>/100</div>
+        <div class="stat-card" id="warn">SISTEMA OK</div>
     </div>
 
     <div class="disk-grid" id="grid"></div>
 
     <div class="controls">
-        <button class="btn-save" onclick="saveFile()">Novo Arquivo (Random)</button>
-        <button class="btn-del" onclick="deleteFile()">Apagar Arquivo ID</button>
-        <button class="btn-rec" onclick="recoverFile()">Recuperação Forense</button>
-        <button class="btn-def" id="def-btn" onclick="defragment()" style="opacity: 0.5;">Desfragmentar</button>
-        <button style="background:#546e7a" onclick="location.reload()">Resetar Disco</button>
+        <button class="btn-save" onclick="saveFile()">Salvar (1-10)</button>
+        <button class="btn-del" onclick="deleteFile()">Deletar ID</button>
+        <button class="btn-rec" onclick="recoverFile()">Forense (Recuperar)</button>
+        
+        <button class="btn-format" onclick="formatDrive()">Formatação Rápida</button>
+        <button class="btn-def" onclick="defragment()">Desfragmentar</button>
+        <button class="btn-zero" onclick="zeroFill()">Zero Fill (Seguro)</button>
     </div>
 
-    <div id="log">> Aguardando comando...</div>
+    <div id="log">> Terminal iniciado. Selecione uma operação.</div>
 
     <script>
         const total = 100;
-        let disk = Array(total).fill(null); // {id: N, status: 'active'|'deleted'|'corrupted'}
+        let disk = Array(total).fill(null); 
         let fileIdCounter = 1;
+        let fileMetadata = {}; 
 
         function init() {
             const grid = document.getElementById('grid');
@@ -91,20 +97,22 @@
                 if(!disk[i] || disk[i].status === 'deleted') slots.push(i);
             }
 
-            if(slots.length < size) return log("ERRO: Espaço insuficiente!");
+            if(slots.length < size) return log("FALHA: Espaço insuficiente no volume.");
+
+            fileMetadata[fileIdCounter] = { size: size, originalPositions: [...slots] };
 
             for(let pos of slots) {
                 await new Promise(r => setTimeout(r, speed));
                 disk[pos] = { id: fileIdCounter, status: 'active' };
                 renderBlock(pos);
             }
-            log(`Arquivo ID:${fileIdCounter} (${size} blocos) gravado.`);
+            log(`FILE_ID:${fileIdCounter} gravado (${size} clusters).`);
             fileIdCounter++;
             updateStats();
         }
 
         function deleteFile() {
-            const id = prompt("Qual o ID do arquivo que deseja apagar?");
+            const id = prompt("Digite o ID do arquivo para exclusão lógica:");
             if(!id) return;
             let found = false;
             disk.forEach((b, i) => {
@@ -114,79 +122,99 @@
                     found = true;
                 }
             });
-            if(found) log(`Arquivo ${id} marcado como excluído.`);
+            if(found) log(`ID:${id} deletado da Tabela de Alocação.`);
             updateStats();
         }
 
-        function recoverFile() {
-            const id = prompt("Qual ID deseja tentar recuperar?");
-            if(!id) return;
+        async function recoverFile() {
+            const id = prompt("ID para análise forense:");
+            if(!id || !fileMetadata[id]) return log("Rastro de arquivo não identificado.");
             
-            // Verifica se o arquivo já foi parcialmente sobrescrito
-            let originalBlocks = disk.filter(b => b && b.id == id);
-            if(originalBlocks.length === 0) return log("ERRO: Rastros do arquivo não encontrados.");
+            log(`Escaneando setores magnéticos...`);
+            await new Promise(r => setTimeout(r, 1200));
 
-            disk.forEach((b, i) => {
-                if(b && b.id == id && b.status === 'deleted') {
-                    b.status = 'active'; // Recuperado com sucesso
-                } else if (b && b.id != id && originalBlocks.some(ob => ob === b)) {
-                    // Aqui simulamos a lógica de que o bloco foi ocupado por outro ID
-                    // O aluno verá que o arquivo recuperado terá blocos corrompidos
+            let meta = fileMetadata[id];
+            let corruptedCount = 0;
+
+            meta.originalPositions.forEach(pos => {
+                if(disk[pos] && disk[pos].id == id && disk[pos].status === 'deleted') {
+                    disk[pos].status = 'recovered';
+                    renderBlock(pos);
+                } 
+                else if (!disk[pos] || disk[pos].id != id) {
+                    corruptedCount++;
+                    for(let i=0; i<total; i++) {
+                        if(!disk[i]) {
+                            disk[i] = { id: id, status: 'corrupted' };
+                            renderBlock(i);
+                            break;
+                        }
+                    }
                 }
             });
-            
-            // Simulação Visual: Se houver blocos faltando do ID original, marcamos como corrompido
-            log(`Tentativa de recuperação do ID ${id} concluída.`);
+
+            log(corruptedCount === 0 ? "INTEGRIDADE: 100%. Arquivo recuperado." : `AVISO: ${corruptedCount} clusters sobrescritos/perdidos.`);
+            updateStats();
+        }
+
+        function formatDrive() {
+            if(!confirm("Deseja realizar a Formatação Rápida? Os dados físicos permanecerão.")) return;
+            disk.forEach(b => { if(b) b.status = 'deleted'; });
+            log("Formatação rápida concluída. Índice limpo.");
+            refreshAll();
+            updateStats();
+        }
+
+        async function zeroFill() {
+            if(!confirm("ALERTA: O Zero Fill destruirá os dados permanentemente. Continuar?")) return;
+            log("Iniciando sobrescrita de segurança (Zero Fill)...");
+            for(let i=0; i<total; i++) {
+                if(disk[i]) {
+                    await new Promise(r => setTimeout(r, 20));
+                    disk[i] = null;
+                    renderBlock(i);
+                }
+            }
+            fileMetadata = {};
+            log("WIPE CONCLUÍDO: Todos os setores limpos.");
             updateStats();
         }
 
         async function defragment() {
-            log("Iniciando Otimização de Disco...");
-            let activeBlocks = disk.filter(b => b && b.status === 'active');
+            log("Reorganizando clusters contíguos...");
+            let active = disk.filter(b => b && b.status !== 'deleted');
             disk.fill(null);
-            init(); // Limpa visual
-            
-            for(let i=0; i<activeBlocks.length; i++) {
-                await new Promise(r => setTimeout(r, 50));
-                disk[i] = activeBlocks[i];
+            refreshAll();
+            for(let i=0; i<active.length; i++) {
+                await new Promise(r => setTimeout(r, 30));
+                disk[i] = active[i];
+                if(disk[i].status !== 'active') disk[i].status = 'active';
                 renderBlock(i);
             }
-            log("Disco Otimizado e Desfragmentado.");
+            log("Desfragmentação e limpeza de rastros concluída.");
             updateStats();
         }
 
         function renderBlock(i) {
             const el = document.getElementById(`b${i}`);
             const data = disk[i];
-            el.className = 'block';
-            el.innerText = '';
+            el.className = 'block'; el.innerText = '';
             if(data) {
                 el.innerText = `ID:${data.id}`;
-                if(data.status === 'active') el.classList.add('file-active');
-                if(data.status === 'deleted') el.classList.add('file-deleted');
-                if(data.status === 'corrupted') el.classList.add('file-corrupted');
+                el.classList.add(`file-${data.status}`);
             }
         }
 
+        function refreshAll() { for(let i=0; i<total; i++) renderBlock(i); }
+
         function updateStats() {
-            let gaps = 0;
-            for(let i=1; i<total; i++) {
-                if(!disk[i] && disk[i-1]) gaps++;
-            }
-            const fragPercent = Math.min(gaps * 10, 100);
-            document.getElementById('frag').innerText = fragPercent + "%";
-            
-            const warn = document.getElementById('warn');
-            const btn = document.getElementById('def-btn');
-            if(fragPercent > 30) {
-                warn.innerText = "ALTA FRAGMENTAÇÃO!";
-                warn.className = "alert-active";
-                btn.style.opacity = "1";
-            } else {
-                warn.innerText = "SISTEMA OK";
-                warn.className = "";
-                btn.style.opacity = "0.5";
-            }
+            let gaps = 0, used = 0;
+            disk.forEach((b, i) => { 
+                if(b && b.status === 'active') used++; 
+                if(i > 0 && !disk[i] && disk[i-1]) gaps++;
+            });
+            document.getElementById('frag').innerText = (gaps * 10) + "%";
+            document.getElementById('cap').innerText = used;
         }
 
         function log(m) { document.getElementById('log').innerText = "> " + m; }
